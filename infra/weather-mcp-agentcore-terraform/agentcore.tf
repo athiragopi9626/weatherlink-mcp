@@ -27,8 +27,8 @@ resource "aws_bedrockagentcore_agent_runtime" "weather_mcp" {
   }
 
   environment_variables = {
-    LOG_LEVEL = "INFO"
-    AWS_REGION = var.aws_region
+    LOG_LEVEL            = "INFO"
+    AWS_REGION           = var.aws_region
     METOFFICE_SECRET_ARN = var.metoffice_secret_arn
   }
 

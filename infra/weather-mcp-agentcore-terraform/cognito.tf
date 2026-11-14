@@ -30,5 +30,5 @@ resource "aws_cognito_user_pool_client" "langgraph" {
     access_token = "minutes"
   }
   enable_token_revocation = true
-  depends_on = [aws_cognito_resource_server.mcp]
+  depends_on              = [aws_cognito_resource_server.mcp]
 }

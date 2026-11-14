@@ -16,10 +16,10 @@ resource "aws_ecr_lifecycle_policy" "weather_mcp" {
       rulePriority = 1
       description  = "Keep last 3 tagged images"
       selection = {
-        tagStatus     = "tagged"
+        tagStatus      = "tagged"
         tagPatternList = ["v*"]
-        countType     = "imageCountMoreThan"
-        countNumber   = 3
+        countType      = "imageCountMoreThan"
+        countNumber    = 3
       }
       action = { type = "expire" }
     }]
