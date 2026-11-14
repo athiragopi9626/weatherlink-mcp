@@ -5,8 +5,22 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "infra/weather-mcp-agentcore-terraform/**"
+      - ".github/workflows/terraform-ci.yml"
 
   pull_request:
+    branches:
+      - main
+    paths:
+      - "infra/weather-mcp-agentcore-terraform/**"
+      - ".github/workflows/terraform-ci.yml"
+
+  workflow_run:
+    workflows:
+      - "Build and Push Weather AgentCore Images"
+    types:
+      - completed
     branches:
       - main
 
@@ -17,49 +31,162 @@ permissions:
   contents: read
 
 concurrency:
-  group: terraform-weather-agentcore-${{ github.ref }}
+  group: terraform-weather-agentcore-deployment
   cancel-in-progress: false
 
 env:
   TF_INPUT: "false"
+  AWS_REGION: eu-west-1
+  TF_DIR: infra/weather-mcp-agentcore-terraform
 
 jobs:
-  terraform-plan:
-    name: Terraform Format, Validate and Plan
+  terraform:
+    name: Terraform Format, Validate, Plan and Apply
+
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
+
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     defaults:
       run:
         working-directory: infra/weather-mcp-agentcore-terraform
 
     steps:
+      # 1. Checkout the source code
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
+      # 2. Authenticate to AWS using GitHub OIDC
       - name: Configure AWS Credentials using OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
           role-session-name: terraform-ci
 
+      # 3. Install Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.14.6"
           terraform_wrapper: false
 
+      # 4. Check Terraform formatting
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
+      # 5. Initialize Terraform
       - name: Terraform Init
         run: terraform init -backend-config=backend.config -input=false -no-color
 
+      # 6. Validate Terraform configuration
       - name: Terraform Validate
         run: terraform validate -no-color
 
-      - name: Terraform Plan
-        run: terraform plan -input=false -no-color -lock-timeout=5m
+      # 7. Automatically select the latest image tag
+      # available in BOTH ECR repositories.
+      - name: Resolve ECR Image Tag
+        id: image
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import subprocess
+          import os
 
+          repositories = [
+              "weather-mcp-primary",
+              "weather-mcp-primary-agent"
+          ]
+
+          image_sets = []
+
+          for repository in repositories:
+              result = subprocess.check_output(
+                  [
+                      "aws",
+                      "ecr",
+                      "describe-images",
+                      "--repository-name",
+                      repository,
+                      "--region",
+                      os.environ["AWS_REGION"],
+                      "--output",
+                      "json"
+                  ],
+                  text=True
+              )
+
+              images = json.loads(result)["imageDetails"]
+
+              tags = {}
+
+              for image in images:
+                  for tag in image.get("imageTags", []):
+                      if tag.startswith("sha-"):
+                          tags[tag] = image["imagePushedAt"]
+
+              image_sets.append(tags)
+
+          common_tags = (
+              set(image_sets[0])
+              & set(image_sets[1])
+          )
+
+          if not common_tags:
+              raise RuntimeError(
+                  "No common SHA image tag found in both ECR repositories"
+              )
+
+          latest_tag = max(
+              common_tags,
+              key=lambda tag: min(
+                  image_sets[0][tag],
+                  image_sets[1][tag]
+              )
+          )
+
+          print(f"Selected image tag: {latest_tag}")
+
+          with open(os.environ["GITHUB_ENV"], "a") as file:
+              file.write(
+                  f"TF_VAR_image_tag={latest_tag}\n"
+              )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as file:
+              file.write(
+                  f"tag={latest_tag}\n"
+              )
+          PY
+
+      # 8. Generate Terraform plan
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -input=false \
+            -no-color \
+            -lock-timeout=5m \
+            -out=tfplan
+
+      # 9. Apply automatically, except on pull requests
       - name: Terraform Apply
-        run: terraform apply -input=false -auto-approve -no-color
+        if: github.event_name != 'pull_request'
+        run: |
+          terraform apply \
+            -input=false \
+            -no-color \
+            -lock-timeout=5m \
+            tfplan
+
+      # 10. Deployment summary
+      - name: Deployment Summary
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "Terraform deployment completed successfully"
+          echo "Image tag: ${{ steps.image.outputs.tag }}"
+          echo "Region: $AWS_REGION"
