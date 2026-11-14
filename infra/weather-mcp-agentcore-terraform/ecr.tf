@@ -17,7 +17,7 @@ resource "aws_ecr_lifecycle_policy" "weather_mcp" {
       description  = "Keep last 3 tagged images"
       selection = {
         tagStatus      = "tagged"
-        tagPatternList = ["v*"]
+        tagPatternList = ["sha-*"]
         countType      = "imageCountMoreThan"
         countNumber    = 3
       }
@@ -48,7 +48,7 @@ resource "aws_ecr_lifecycle_policy" "weather_agent" {
       description  = "Keep last 3 tagged images"
       selection = {
         tagStatus      = "tagged"
-        tagPatternList = ["v*"]
+        tagPatternList = ["sha-*"]
         countType      = "imageCountMoreThan"
         countNumber    = 3
       }
