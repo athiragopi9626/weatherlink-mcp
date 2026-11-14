@@ -1,0 +1,116 @@
+
+name: Build and Push Weather AgentCore Images
+
+# Automatically trigger when relevant files change on main.
+# Also allow a manual run for testing or rebuilding images.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "agent/**"
+      - "mcp/**"
+      - "src/**"
+      - "weather.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".dockerignore"
+      - ".github/workflows/docker-build-push.yml"
+
+  workflow_dispatch:
+
+# id-token: write allows GitHub to request an OIDC token.
+# contents: read allows the workflow to check out source code.
+permissions:
+  id-token: write
+  contents: read
+
+# Prevent overlapping image builds for the same Git branch.
+concurrency:
+  group: weather-docker-build-${{ github.ref }}
+  cancel-in-progress: false
+
+# Shared configuration for both Docker images.
+env:
+  AWS_REGION: eu-west-1
+  ECR_MCP_REPOSITORY: weather-mcp-primary
+  ECR_AGENT_REPOSITORY: weather-mcp-primary-agent
+
+jobs:
+  build-and-push:
+    name: Build ARM64 Images and Push to ECR
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      # Step 1: Download repository files to the GitHub runner.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Assume the AWS IAM role using GitHub OIDC.
+      # No long-lived AWS access keys are required.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: weather-docker-build
+
+      # Step 3: Authenticate Docker to private Amazon ECR.
+      # The registry URL is exposed as an action output.
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Step 4: Enable ARM64 emulation on the GitHub runner.
+      # This lets an AMD64 runner build ARM64 containers.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Step 5: Configure Docker Buildx.
+      # Buildx supports cross-platform image builds.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 6: Generate a tag from the Git commit SHA.
+      # Both images use the same tag for traceability.
+      # Unique tags work with immutable ECR repositories.
+      - name: Generate image tag
+        id: image
+        shell: bash
+        run: |
+          echo "tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
+
+      # Step 7: Build the MCP server image.
+      # Context is repository root because weather.py,
+      # pyproject.toml and uv.lock are stored there.
+      # Push the ARM64 image to the MCP ECR repository.
+      - name: Build and push MCP image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./mcp/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_MCP_REPOSITORY }}:${{ steps.image.outputs.tag }}
+
+      # Step 8: Build the LangGraph agent image.
+      # Uses its own Dockerfile and ECR repository.
+      - name: Build and push LangGraph image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./agent/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_AGENT_REPOSITORY }}:${{ steps.image.outputs.tag }}
+
+      # Step 9: Display the image tag and URIs.
+      # Use this tag in Terraform when deploying runtimes.
+      - name: Show pushed images
+        run: |
+          echo "Image tag: ${{ steps.image.outputs.tag }}"
+          echo "MCP image:"
+          echo "${{ steps.ecr.outputs.registry }}/${{ env.ECR_MCP_REPOSITORY }}:${{ steps.image.outputs.tag }}"
+          echo "LangGraph image:"
+          echo "${{ steps.ecr.outputs.registry }}/${{ env.ECR_AGENT_REPOSITORY }}:${{ steps.image.outputs.tag }}"
