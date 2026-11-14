@@ -7,6 +7,14 @@ from mcp.server import MCPServer
 # Create the MCP server
 mcp = MCPServer("weatherlink")
 
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+@mcp.custom_route("/ping", methods=["GET"])
+async def ping(request: Request) -> JSONResponse:
+    """Health endpoint used by AgentCore Runtime."""
+    return JSONResponse({"status": "Healthy"})
+
 # Weather API configuration
 NWS_API_BASE = "https://api.weather.gov"
 USER_AGENT = "weatherlink-mcp/1.0"
@@ -156,4 +164,9 @@ async def get_uk_forecast(latitude: float, longitude: float) -> dict:
 
 # Start the MCP server
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    mcp.run(
+        transport="streamable-http",
+        host="127.0.0.1",
+        port=8000,
+        stateless_http=True,
+    )

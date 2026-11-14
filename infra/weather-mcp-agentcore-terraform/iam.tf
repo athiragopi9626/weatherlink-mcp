@@ -30,14 +30,19 @@ data "aws_iam_policy_document" "agentcore_permissions" {
     actions   = ["ecr:GetAuthorizationToken"]
     resources = ["*"]
   }
-  statement {
-    sid = "ReadContainerImage"
-    actions = [
-      "ecr:BatchGetImage",
-      "ecr:GetDownloadUrlForLayer"
-    ]
-    resources = [aws_ecr_repository.weather_mcp.arn]
-  }
+statement {
+  sid = "ReadContainerImage"
+
+  actions = [
+    "ecr:BatchGetImage",
+    "ecr:GetDownloadUrlForLayer"
+  ]
+
+  resources = [
+    aws_ecr_repository.weather_mcp.arn,
+    aws_ecr_repository.weather_agent.arn
+  ]
+}
   statement {
     sid = "WriteAgentCoreLogs"
     actions = [

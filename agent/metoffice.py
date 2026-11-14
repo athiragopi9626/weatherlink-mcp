@@ -3,20 +3,48 @@ import os
 import asyncio
 import httpx2
 from dotenv import load_dotenv
+import json
+import boto3
 
 load_dotenv()
 
-API_KEY = os.getenv("METOFFICE_API_KEY")
+def get_metoffice_api_key() -> str:
+    """Get the Met Office API key from local environment or AWS Secrets Manager."""
+
+    # Local development: use the key from .env.
+    local_key = os.getenv("METOFFICE_API_KEY")
+    if local_key:
+        return local_key
+
+    # AWS AgentCore: use the secret ARN passed by Terraform.
+    secret_arn = os.getenv("METOFFICE_SECRET_ARN")
+    if not secret_arn:
+        raise RuntimeError("METOFFICE_SECRET_ARN is not configured")
+
+    # Boto3 uses the AgentCore execution role credentials.
+    client = boto3.client("secretsmanager")
+
+    response = client.get_secret_value(SecretId=secret_arn)
+
+    # Read the JSON key/value secret.
+    secret = json.loads(response["SecretString"])
+    api_key = secret.get("METOFFICE_API_KEY")
+
+    if not api_key:
+        raise RuntimeError("METOFFICE_API_KEY not found in secret")
+
+    return api_key
 
 URL = "https://data.hub.api.metoffice.gov.uk/sitespecific/v0/point/hourly"
 
 
 async def get_uk_weather(latitude: float, longitude: float):
-    if not API_KEY:
-        raise RuntimeError("METOFFICE_API_KEY is missing")
+    # Retrieve API key from .env locally or AWS Secrets Manager.
+    api_key = await asyncio.to_thread(get_metoffice_api_key)
 
+    # Pass the retrieved API key to the Met Office API.
     headers = {
-        "apikey": API_KEY
+        "apikey": api_key
     }
 
     params = {
