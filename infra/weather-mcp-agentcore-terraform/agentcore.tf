@@ -1,8 +1,21 @@
+
+# ============================================================
+# AgentCore Runtime 1: MCP Weather Server
+# ============================================================
+
 resource "aws_bedrockagentcore_agent_runtime" "weather_mcp" {
-  count              = var.deploy_runtime ? 1 : 0
-  agent_runtime_name = replace("${var.project_name}_${var.environment}", "-", "_")
-  description        = "Weather MCP server with Cognito M2M JWT inbound authentication"
-  role_arn           = aws_iam_role.agentcore.arn
+  count = var.deploy_runtime ? 1 : 0
+
+  agent_runtime_name = replace(
+    "${var.project_name}_${var.environment}",
+    "-",
+    "_"
+  )
+
+  description = "Weather MCP server with Cognito M2M JWT inbound authentication"
+
+  # Dedicated MCP execution role
+  role_arn = aws_iam_role.weather_mcp.arn
 
   agent_runtime_artifact {
     container_configuration {
@@ -18,11 +31,18 @@ resource "aws_bedrockagentcore_agent_runtime" "weather_mcp" {
     server_protocol = "MCP"
   }
 
+  # Cognito JWT authentication for inbound MCP requests
   authorizer_configuration {
     custom_jwt_authorizer {
-      discovery_url   = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.mcp.id}/.well-known/openid-configuration"
-      allowed_clients = [aws_cognito_user_pool_client.langgraph.id]
-      allowed_scopes  = ["${aws_cognito_resource_server.mcp.identifier}/invoke"]
+      discovery_url = "https://cognito-idp.${var.aws_region}.amazonaws.com/${aws_cognito_user_pool.mcp.id}/.well-known/openid-configuration"
+
+      allowed_clients = [
+        aws_cognito_user_pool_client.langgraph.id
+      ]
+
+      allowed_scopes = [
+        "${aws_cognito_resource_server.mcp.identifier}/invoke"
+      ]
     }
   }
 
@@ -32,8 +52,15 @@ resource "aws_bedrockagentcore_agent_runtime" "weather_mcp" {
     METOFFICE_SECRET_ARN = var.metoffice_secret_arn
   }
 
-  depends_on = [aws_iam_role_policy.weather_mcp]
+  depends_on = [
+    aws_iam_role_policy.weather_mcp
+  ]
 }
+
+
+# ============================================================
+# AgentCore Runtime 2: LangGraph Weather Agent
+# ============================================================
 
 resource "aws_bedrockagentcore_agent_runtime" "weather_agent" {
   count = var.deploy_runtime ? 1 : 0
@@ -45,7 +72,9 @@ resource "aws_bedrockagentcore_agent_runtime" "weather_agent" {
   )
 
   description = "LangGraph weather agent"
-  role_arn    = aws_iam_role.agentcore.arn
+
+  # Dedicated LangGraph execution role
+  role_arn = aws_iam_role.weather_agent.arn
 
   agent_runtime_artifact {
     container_configuration {
@@ -62,11 +91,17 @@ resource "aws_bedrockagentcore_agent_runtime" "weather_agent" {
   }
 
   environment_variables = {
-    LOG_LEVEL          = "INFO"
-    AWS_REGION         = var.aws_region
+    LOG_LEVEL  = "INFO"
+    AWS_REGION = var.aws_region
+
+    # Cognito credentials stored in Secrets Manager
     COGNITO_SECRET_ARN = var.cognito_secret_arn
-    MCP_SERVER_URL     = "https://bedrock-agentcore.${var.aws_region}.amazonaws.com/runtimes/${urlencode(aws_bedrockagentcore_agent_runtime.weather_mcp[0].agent_runtime_arn)}/invocations?qualifier=DEFAULT"
+
+    # Deployed MCP Runtime HTTPS endpoint
+    MCP_SERVER_URL = "https://bedrock-agentcore.${var.aws_region}.amazonaws.com/runtimes/${urlencode(aws_bedrockagentcore_agent_runtime.weather_mcp[0].agent_runtime_arn)}/invocations?qualifier=DEFAULT"
   }
 
-  depends_on = [aws_iam_role_policy.weather_agent]
+  depends_on = [
+    aws_iam_role_policy.weather_agent
+  ]
 }
