@@ -173,6 +173,18 @@ data "aws_iam_policy_document" "weather_agent_permissions" {
       resources = [statement.value]
     }
   }
+
+  statement {
+    sid = "InvokeWeatherLLM"
+
+    actions = [
+      "bedrock:InvokeModel"
+    ]
+
+    resources = [
+      "arn:aws:bedrock:${var.aws_region}::foundation-model/zai.glm-4.7-flash"
+    ]
+  }
 }
 
 

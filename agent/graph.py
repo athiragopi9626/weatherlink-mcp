@@ -6,6 +6,7 @@ from langgraph.graph import StateGraph, START, END
 from agent.state import WeatherState
 
 from agent.nodes import (
+    resolve_location,
     fetch_uk_weather,
     fetch_uk_warnings,
     fetch_us_weather,
@@ -28,6 +29,7 @@ builder = StateGraph(WeatherState)
 # --------------------------------------------------
 
 # Weather forecast nodes
+builder.add_node("resolve_location", resolve_location)
 builder.add_node("fetch_uk", fetch_uk_weather)
 builder.add_node("fetch_us", fetch_us_weather)
 
@@ -48,8 +50,20 @@ builder.add_node("unsupported", unsupported_country)
 # 3. Route based on country
 # --------------------------------------------------
 
+# Start by checking which country the user selected.
 builder.add_conditional_edges(
     START,
+    route_by_country,
+    {
+        "uk": "resolve_location",
+        "us": "resolve_location",
+        "unsupported": "unsupported",
+    }
+)
+
+# After resolving coordinates, select the weather provider.
+builder.add_conditional_edges(
+    "resolve_location",
     route_by_country,
     {
         "uk": "fetch_uk",
@@ -114,10 +128,12 @@ async def main():
     # Current test uses New York, US.
 
     initial_state = {
-        "user_query": "What's the weather in New York?",
-        "country": "US",
+        "user_query": "What's the weather in Manchester?",
+        "country": "UK",
+        "city": "Manchester",
         "attempts": 0,
     }
+
 
     # Execute the workflow asynchronously
     result = await graph.ainvoke(initial_state)

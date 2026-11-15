@@ -1,11 +1,34 @@
+from typing import TypedDict, NotRequired
 
-from typing import TypedDict
 
 class WeatherState(TypedDict):
+    # Original question entered by the user.
     user_query: str
+
+    # Country selected in Streamlit: UK or US.
     country: str
-    forecast: dict
-    warnings: dict
-    risk_level: str
+
+    # City selected in Streamlit, e.g. Exeter or Manchester.
+    city: str
+
+    # Coordinates populated by our geocoding node.
+    latitude: NotRequired[float]
+    longitude: NotRequired[float]
+
+    # Timezone returned by the geocoding service.
+    timezone: NotRequired[str]
+
+    # Weather data returned by MCP tools.
+    forecast: NotRequired[dict]
+
+    # Official weather warnings.
+    warnings: NotRequired[dict]
+
+    # Risk level calculated by LangGraph.
+    risk_level: NotRequired[str]
+
+    # Reserved for retry handling.
     attempts: int
-    final_answer: str
+
+    # Final response shown in Streamlit.
+    final_answer: NotRequired[str]

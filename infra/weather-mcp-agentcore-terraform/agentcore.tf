@@ -96,6 +96,10 @@ resource "aws_bedrockagentcore_agent_runtime" "weather_agent" {
     LOG_LEVEL  = "INFO"
     AWS_REGION = var.aws_region
 
+    # Amazon Bedrock LLM configuration
+    BEDROCK_REGION   = var.aws_region
+    BEDROCK_MODEL_ID = "zai.glm-4.7-flash"
+
     # Cognito credentials stored in Secrets Manager
     COGNITO_SECRET_ARN = var.cognito_secret_arn
 
