@@ -1657,6 +1657,8 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "bedrock-agentcore" },
+    { name = "boto3" },
+    { name = "httpx" },
     { name = "langchain", extra = ["mcp"] },
     { name = "langgraph" },
     { name = "mcp", extra = ["cli"] },
@@ -1666,6 +1668,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "bedrock-agentcore", specifier = ">=1.26.0" },
+    { name = "boto3" },
+    { name = "httpx" },
     { name = "langchain", extras = ["mcp"], specifier = ">=1.5.0" },
     { name = "langgraph", specifier = ">=1.2.21" },
     { name = "mcp", extras = ["cli"], specifier = ">=2.3.0" },
