@@ -162,6 +162,39 @@ async def get_uk_forecast(latitude: float, longitude: float) -> dict:
 
 
 
+# Import our Met Office severe weather warnings implementation.
+from agent.metoffice_warnings import (
+    get_uk_weather_warnings as fetch_uk_warnings
+)
+
+
+@mcp.tool()
+async def get_uk_weather_warnings(
+    latitude: float,
+    longitude: float,
+    date: str | None = None,
+) -> dict:
+    """
+    Get official Met Office weather warnings for a UK location.
+
+    Args:
+        latitude: Location latitude.
+        longitude: Location longitude.
+        date: Optional date in YYYY-MM-DD format.
+
+    Returns:
+        Official warnings affecting the location and date.
+    """
+
+    # Delegate API calls, geographic matching, and date filtering
+    # to our reusable Python module.
+    return await fetch_uk_warnings(
+        latitude=latitude,
+        longitude=longitude,
+        date=date,
+    )
+
+
 # Start the MCP server
 if __name__ == "__main__":
     mcp.run(

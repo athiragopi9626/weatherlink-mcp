@@ -5,7 +5,7 @@ class WeatherState(TypedDict):
     user_query: str
     country: str
     forecast: dict
-    warnings: str
+    warnings: dict
     risk_level: str
     attempts: int
     final_answer: str
