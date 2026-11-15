@@ -50,6 +50,8 @@ resource "aws_bedrockagentcore_agent_runtime" "weather_mcp" {
     LOG_LEVEL            = "INFO"
     AWS_REGION           = var.aws_region
     METOFFICE_SECRET_ARN = var.metoffice_secret_arn
+    # New Met Office severe weather warnings API key
+    METOFFICE_WARNING_SECRET_ARN = data.aws_secretsmanager_secret.metoffice_warning.arn
   }
 
   depends_on = [

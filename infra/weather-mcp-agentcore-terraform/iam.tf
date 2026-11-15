@@ -80,7 +80,7 @@ data "aws_iam_policy_document" "weather_mcp_permissions" {
     ]
   }
 
-  # Met Office API credentials
+  # Existing Met Office forecast API credentials
   dynamic "statement" {
     for_each = var.metoffice_secret_arn == "" ? [] : [var.metoffice_secret_arn]
 
@@ -90,8 +90,20 @@ data "aws_iam_policy_document" "weather_mcp_permissions" {
       resources = [statement.value]
     }
   }
-}
 
+  # New Met Office NSWWS warnings API credentials
+  statement {
+    sid = "ReadMetOfficeWarningsSecret"
+
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+
+    resources = [
+      data.aws_secretsmanager_secret.metoffice_warning.arn
+    ]
+  }
+}
 
 resource "aws_iam_role_policy" "weather_mcp" {
   name = "${var.project_name}-${var.environment}-mcp-policy"
