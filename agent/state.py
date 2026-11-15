@@ -1,3 +1,4 @@
+
 from typing import TypedDict, NotRequired
 
 
@@ -8,15 +9,23 @@ class WeatherState(TypedDict):
     # Country selected in Streamlit: UK or US.
     country: str
 
-    # City selected in Streamlit, e.g. Exeter or Manchester.
+    # City selected by the user.
     city: str
 
-    # Coordinates populated by our geocoding node.
+    # Coordinates supplied by Streamlit or resolved by geocoding.
     latitude: NotRequired[float]
     longitude: NotRequired[float]
 
-    # Timezone returned by the geocoding service.
+    # Timezone of the selected location.
     timezone: NotRequired[str]
+
+    # Location resolution status:
+    # "resolved" or "needs_clarification".
+    location_status: NotRequired[str]
+
+    # Candidate locations returned by the geocoding API.
+    # Used by Streamlit to display location choices.
+    location_choices: NotRequired[list[dict]]
 
     # Weather data returned by MCP tools.
     forecast: NotRequired[dict]
