@@ -32,7 +32,7 @@ resource "aws_bedrockagentcore_agent_runtime" "weather_mcp" {
     METOFFICE_SECRET_ARN = var.metoffice_secret_arn
   }
 
-  depends_on = [aws_iam_role_policy.agentcore]
+  depends_on = [aws_iam_role_policy.weather_mcp]
 }
 
 resource "aws_bedrockagentcore_agent_runtime" "weather_agent" {
@@ -62,9 +62,11 @@ resource "aws_bedrockagentcore_agent_runtime" "weather_agent" {
   }
 
   environment_variables = {
-    LOG_LEVEL  = "INFO"
-    AWS_REGION = var.aws_region
+    LOG_LEVEL          = "INFO"
+    AWS_REGION         = var.aws_region
+    COGNITO_SECRET_ARN = var.cognito_secret_arn
+    MCP_SERVER_URL     = "https://bedrock-agentcore.${var.aws_region}.amazonaws.com/runtimes/${urlencode(aws_bedrockagentcore_agent_runtime.weather_mcp[0].agent_runtime_arn)}/invocations?qualifier=DEFAULT"
   }
 
-  depends_on = [aws_iam_role_policy.agentcore]
+  depends_on = [aws_iam_role_policy.weather_agent]
 }

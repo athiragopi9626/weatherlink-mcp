@@ -45,3 +45,9 @@ variable "tags" {
     Project   = "weather-mcp"
   }
 }
+
+variable "cognito_secret_arn" {
+  description = "Secrets Manager ARN containing Cognito M2M credentials"
+  type        = string
+  default     = "arn:aws:secretsmanager:eu-west-1:996918499053:secret:weather-mcp/langgraph/cognito-wKOgdc"
+}

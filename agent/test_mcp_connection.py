@@ -9,7 +9,7 @@ from langchain.mcp import MCPAdapter
 async def main():
 
     # Connect to our local weather MCP server.
-    adapter = MCPAdapter("http://127.0.0.1:8000/mcp")
+    adapter = MCPAdapter(os.environ["MCP_SERVER_URL"])
 
     # Wait for the MCP server to return its available tools.
     tools = await adapter.list_tools()

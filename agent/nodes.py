@@ -1,13 +1,24 @@
 
 import json
 from langchain.mcp import MCPAdapter
+import os
+from agent.mcp_auth import get_mcp_access_token
+from fastmcp import Client
 
 
 async def fetch_uk_weather(state: dict) -> dict:
     """LangGraph node that fetches UK weather using MCP."""
 
     # Connect to our running MCP weather server.
-    adapter = MCPAdapter("http://127.0.0.1:8000/mcp")
+
+    token = get_mcp_access_token()
+
+    client = Client(
+        os.environ["MCP_SERVER_URL"],
+        auth=token
+    )
+
+    adapter = MCPAdapter(client)
 
     # Discover available MCP tools.
     tools = await adapter.list_tools()
@@ -55,7 +66,14 @@ def route_by_country(state: dict) -> str:
 async def fetch_us_weather(state: dict) -> dict:
     """Fetch US weather using our MCP server."""
 
-    adapter = MCPAdapter("http://127.0.0.1:8000/mcp")
+    token = get_mcp_access_token()
+
+    client = Client(
+        os.environ["MCP_SERVER_URL"],
+        auth=token
+    )
+
+    adapter = MCPAdapter(client)
 
     # Discover available tools.
     tools = await adapter.list_tools()
